@@ -12,6 +12,7 @@
   let scenesFiltered = []
   let isStudioMode = false
   const sceneIcons = JSON.parse(window.localStorage.getItem('sceneIcons') || '{}')
+  let activeTab = 0
 
   $: scenesFiltered = scenes.filter((scene) => scene.sceneName.indexOf('(hidden)') === -1).reverse()
   // store sceneIcons on change
@@ -96,22 +97,57 @@
 <ol
   class:column={editable}
   class:with-icon={buttonStyle === 'icon'}
-  >
+>
   {#if editable}
-    {#each scenes.reverse() as scene}
-    <li>
-      <!-- svelte-ignore a11y-label-has-associated-control -->
-      <label class="label">Name</label>
-      <input type="text" class="input" title={scene.sceneName} value={scene.sceneName} on:change={onNameChange} />
-      <!-- svelte-ignore a11y-label-has-associated-control -->
-      <label class="label">Icon</label>
-      <input type="text" class="input" title={scene.sceneName} value={sceneIcons[scene.sceneName] || ''} on:change={onIconChange} />
-    </li>
-    {/each}
+    <div class="scene-editor">
+      <div class="tabs">
+        {#each scenes.reverse() as scene, i}
+          <button 
+            class="tab-button" 
+            class:active={activeTab === i}
+            on:click={() => activeTab = i}
+          >
+            Cena {i + 1}
+          </button>
+        {/each}
+      </div>
+
+      <div class="tab-content">
+        {#each scenes.reverse() as scene, i}
+          {#if activeTab === i}
+            <div class="scene-edit-form">
+              <div class="input-group">
+                <label class="label">NOME DA CENA</label>
+                <input 
+                  type="text" 
+                  class="input" 
+                  title={scene.sceneName} 
+                  value={scene.sceneName} 
+                  placeholder="Digite o nome da cena"
+                  on:change={onNameChange} 
+                />
+              </div>
+              <div class="input-group">
+                <label class="label">ÍCONE DA CENA</label>
+                <input 
+                  type="text" 
+                  class="input" 
+                  title={scene.sceneName} 
+                  value={sceneIcons[scene.sceneName] || ''} 
+                  placeholder="URL do ícone ou código de cor (#RRGGBB)"
+                  on:change={onIconChange} 
+                />
+              </div>
+            </div>
+          {/if}
+        {/each}
+      </div>
+    </div>
   {:else}
     {#each scenesFiltered as scene}
     <li>
-      <SourceButton name={scene.sceneName}
+      <SourceButton 
+        name={scene.sceneName}
         on:click={sceneClicker(scene)}
         isProgram={programScene === scene.sceneName}
         isPreview={previewScene === scene.sceneName}
@@ -126,27 +162,346 @@
 <style>
   ol {
     list-style: None;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0 2rem;
+    padding: 0;
+  }
+
+  @media screen and (min-width: 1024px) {
+    ol {
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.5rem;
+      padding: 1.5rem;
+      background: #202837;
+      border-radius: 16px;
+      border: 1px solid #2a3446;
+    }
+  }
+
+  ol.column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 0 !important;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  ol.column li {
+    background: linear-gradient(145deg, rgba(32, 40, 55, 0.8), rgba(32, 40, 55, 0.95));
+    border-radius: 16px;
+    border: 1px solid rgba(120, 243, 12, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    position: relative;
+    backdrop-filter: blur(10px);
+  }
+
+  ol.column li::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: #78f30c;
+    opacity: 0.5;
+  }
+
+  .scene-editor {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    background: #202837;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    background: #1a212f;
+    padding: 1rem 1rem 0;
+    gap: 0.5rem;
+    border-bottom: 1px solid #2a3446;
+  }
+
+  .tabs::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .tabs::-webkit-scrollbar-track {
+    background: #1a212f;
+  }
+
+  .tabs::-webkit-scrollbar-thumb {
+    background: #2a3446;
+    border-radius: 3px;
+  }
+
+  .tab-button {
+    background: transparent;
+    border: none;
+    color: #8b95a8;
+    padding: 0.85rem 1.5rem;
+    border-radius: 8px 8px 0 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+
+  .tab-button:hover {
+    color: #78f30c;
+    background: #242d3d;
+  }
+
+  .tab-button.active {
+    color: #78f30c;
+    background: #202837;
+    border: 1px solid #2a3446;
+    border-bottom-color: #202837;
+    position: relative;
+  }
+
+  .tab-button.active::after {
+    display: none;
+  }
+
+  .tab-content {
+    padding: 2rem;
+    background: #202837;
+  }
+
+  .scene-edit-form {
+    width: 100%;
+    position: relative;
+    padding: 2rem;
+    background: #1a212f;
+    border-radius: 8px;
+    border: 1px solid #2a3446;
+  }
+
+  .scene-edit-form::before {
+    content: 'CENA';
+    position: absolute;
+    top: -12px;
+    right: 1.5rem;
+    background: #78f30c;
+    color: #1a212f;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .input-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+
+  .input-group:last-child {
+    margin-bottom: 0;
+  }
+
+  .input-group .label {
+    display: block;
+    color: #78f30c;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .input-group .input {
+    width: 100%;
+    background: #202837 !important;
+    border: 1px solid #2a3446 !important;
+    border-radius: 6px !important;
+    color: white !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .input-group .input:focus {
+    border-color: #78f30c !important;
+    box-shadow: 0 0 0 1px #78f30c !important;
+    outline: none;
+  }
+
+  .input-group .input::placeholder {
+    color: #8b95a8 !important;
+  }
+
+  @media screen and (max-width: 768px) {
+    .tabs {
+      padding: 0.75rem 0.75rem 0;
+      gap: 0.35rem;
+    }
+
+    .tab-button {
+      padding: 0.75rem 1.25rem;
+      font-size: 0.85rem;
+    }
+
+    .tab-content {
+      padding: 1.5rem;
+    }
+
+    .scene-edit-form {
+      padding: 1.5rem;
+    }
+  }
+
+  li {
+    display: flex;
+    min-width: 10rem;
+    transition: all 0.3s ease;
+  }
+
+  li:hover {
+    transform: translateY(-2px);
+  }
+
+  ol.with-icon {
     display: flex;
     flex-wrap: wrap;
-    justify-content: space-between;
-    gap: .5rem;
-    margin-bottom: 2rem;
-  }
-  ol.column {
-    flex-direction: column;
-    gap: 1rem;
-  }
-  li {
-    display: inline-block;
-    min-width: 10rem;
-    flex-grow: 1;
-  }
-  ol.with-icon {
     justify-content: center;
+    gap: 1rem;
+    padding: 1rem 0;
   }
+
+  @media screen and (min-width: 1024px) {
+    ol.with-icon {
+      padding: 2rem;
+      gap: 2rem;
+    }
+
+    ol.with-icon li {
+      position: relative;
+    }
+
+    ol.with-icon li::after {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      background: rgba(120, 243, 12, 0.1);
+      border-radius: 20px;
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: -1;
+    }
+
+    ol.with-icon li:hover::after {
+      opacity: 1;
+      inset: -15px;
+    }
+  }
+
   ol.with-icon li {
     min-width: 0;
-    flex-grow: 0;
-    flex-shrink: 1;
+    flex: 0 0 auto;
+  }
+
+  /* Estilo para o modo de edição */
+  ol.column li {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  :global(ol.column .label) {
+    color: #78f30c;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+
+  @media screen and (min-width: 1024px) {
+    :global(ol.column .input) {
+      background: rgba(32, 40, 55, 0.95) !important;
+      border: 2px solid rgba(120, 243, 12, 0.2) !important;
+      border-radius: 12px !important;
+      color: white !important;
+      padding: 0.75rem 1rem !important;
+      margin-bottom: 1.5rem !important;
+      transition: all 0.3s ease !important;
+      font-size: 1.1rem !important;
+    }
+
+    :global(ol.column .input:focus) {
+      border-color: #78f30c !important;
+      box-shadow: 0 0 0 3px rgba(120, 243, 12, 0.2) !important;
+      transform: translateY(-1px);
+    }
+
+    :global(ol.column .input::placeholder) {
+      color: rgba(255, 255, 255, 0.3) !important;
+      font-style: italic;
+    }
+
+    /* Adiciona ícones indicativos nos campos */
+    :global(ol.column .input-group) {
+      position: relative;
+    }
+
+    :global(ol.column .input-group::before) {
+      content: '🎬';
+      position: absolute;
+      right: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0.5;
+      font-size: 1.2rem;
+      pointer-events: none;
+    }
+
+    :global(ol.column .input-group.icon::before) {
+      content: '🎨';
+    }
+  }
+
+  /* Responsividade */
+  @media screen and (max-width: 768px) {
+    ol {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 0.75rem;
+    }
+
+    ol.with-icon {
+      padding: 0.5rem 0;
+    }
+  }
+
+  /* Adiciona uma dica visual para arrastar */
+  @media screen and (min-width: 1024px) {
+    ol.column li::before {
+      content: '⋮⋮';
+      position: absolute;
+      left: -30px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(120, 243, 12, 0.5);
+      font-size: 1.5rem;
+      cursor: move;
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+
+    ol.column li:hover::before {
+      opacity: 1;
+      left: -35px;
+    }
   }
 </style>

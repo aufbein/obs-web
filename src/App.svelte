@@ -51,6 +51,7 @@
   import SourceSwitcher from './SourceSwitcher.svelte'
   import ProfileSelect from './ProfileSelect.svelte'
   import SceneCollectionSelect from './SceneCollectionSelect.svelte'
+  import Modal from './Modal.svelte'
 
   // State
   let connected = false
@@ -73,6 +74,25 @@
   let isSaveReplayDisabled = false
   let showMoreOptions = false
   let scenesDropdownVisible = false
+  let isCopyrightModalOpen = false
+
+  // Função para ir para a tela inicial (troca de cenas)
+  async function goToHome() {
+    editable = false;
+    if (isStudioMode) {
+      await sendCommand('SetStudioModeEnabled', {
+        studioModeEnabled: false
+      });
+    }
+    // Fecha o menu mobile se estiver aberto
+    document.getElementById('mobileMenu').classList.remove('is-active');
+    document.getElementById('mobileMenuOverlay').classList.remove('is-active');
+    // Fecha o dropdown de cenas se estiver aberto
+    scenesDropdownVisible = false;
+    // Fecha o menu hamburger se estiver aberto
+    document.querySelector('.navbar-burger').classList.remove('is-active');
+    document.getElementById('navmenu').classList.remove('is-active');
+  }
 
   onMount(async () => {
     if ('serviceWorker' in navigator) {
@@ -377,6 +397,13 @@
     editable = false;
     closeScenesDropdown();
   }
+
+  function calculateBitrate(heartbeat) {
+    if (heartbeat?.streaming?.outputActive) {
+      return Math.round(heartbeat.streaming.outputBytes / (heartbeat.streaming.outputDuration / 1000) / 125);
+    }
+    return 0;
+  }
 </script>
 
 <style lang="scss">
@@ -420,14 +447,31 @@
     display: flex;
   }
 
-  .main-content {
+  .tools-main-content {
     flex: 1;
     padding: 1.5rem;
+    background-color: #202837;
+    min-height: 100vh;
+    margin-left: 300px;
+    
+    @media screen and (max-width: 1024px) {
+      margin-left: 0;
+    }
+    
+    @media screen and (max-width: 768px) {
+      padding-bottom: 70px;
+    }
   }
 
-  @media screen and (min-width: 1024px) {
-    .main-content {
-      margin-left: 300px;
+  .login-main-content {
+    flex: 1;
+    background-color: #202837;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    
+    @media screen and (max-width: 768px) {
+      padding: 0;
     }
   }
 
@@ -442,6 +486,12 @@
     display: flex;
     align-items: center;
     gap: 0.50rem;
+  }
+  .brand-link {
+    margin-top: -15px;
+  }
+  .navbar-burger {
+    margin-top: -5px;
   }
   .button.is-light.is-small {
     padding: 0 1rem;
@@ -774,9 +824,7 @@
   }
 
   :global(.main-content) {
-    @media screen and (max-width: 768px) {
-      padding-bottom: 70px;
-    }
+    display: none;
   }
 
   :global(.stream-controls .control-grid) {
@@ -846,9 +894,10 @@
 
   :global(.scene-grid) {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin: 1rem 0;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+    padding: 0.5rem;
+    margin: 0;
   }
 
   :global(.input) {
@@ -934,7 +983,8 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    padding: 0.75rem;
+    padding: 0.75rem 1.2rem;
+    gap: 5px;
     font-size: 0.9rem;
     height: auto;
   }
@@ -1063,11 +1113,25 @@
   }
 
   .metric-value {
-    font-size: 1.1rem;
-    font-weight: 600;
     color: #78f30c;
+    font-size: 2rem;
+    font-weight: 600;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+    
+    &.is-warning {
+      color: #ffdd57;
+    }
+    
+    &.is-danger {
+      color: #ff3860;
+    }
+
+    &.is-offline {
+      color: #888;
+      font-size: 1.5rem;
+      letter-spacing: 1px;
+    }
   }
 
   .metric-label {
@@ -1075,7 +1139,6 @@
     color: rgba(255, 255, 255, 0.6);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    line-height: 1;
   }
 
   @media screen and (max-width: 768px) {
@@ -1325,12 +1388,8 @@
       display: block;
     }
 
-    .main-content {
-      margin-left: 300px;
-    }
-
     /* Esconde o stream-controls original em desktop */
-    .main-content .stream-controls {
+    .tools-main-content .stream-controls {
       display: none;
     }
   }
@@ -1365,6 +1424,48 @@
     border: 1px solid rgba(120, 243, 12, 0.1);
     border-radius: 8px;
     padding: 1rem;
+    transition: all 0.3s ease;
+  }
+
+  .sidebar-metric.is-warning {
+    background: rgba(255, 221, 87, 0.05);
+    border-color: rgba(255, 221, 87, 0.1);
+  }
+
+  .sidebar-metric.is-warning .metric-icon {
+    color: #ffdd57;
+  }
+
+  .sidebar-metric.is-warning .metric-value {
+    color: #ffdd57;
+  }
+
+  .sidebar-metric.is-danger {
+    background: rgba(255, 56, 96, 0.05);
+    border-color: rgba(255, 56, 96, 0.1);
+  }
+
+  .sidebar-metric.is-danger .metric-icon {
+    color: #ff3860;
+  }
+
+  .sidebar-metric.is-danger .metric-value {
+    color: #ff3860;
+  }
+
+  .sidebar-metric.is-offline {
+    background: rgba(136, 136, 136, 0.05);
+    border-color: rgba(136, 136, 136, 0.1);
+  }
+
+  .sidebar-metric.is-offline .metric-icon {
+    color: #888;
+  }
+
+  .sidebar-metric.is-offline .metric-value {
+    color: #888;
+    font-size: 1.5rem;
+    letter-spacing: 1px;
   }
 
   .metric-header {
@@ -1378,6 +1479,7 @@
     color: #78f30c;
     width: 24px;
     height: 24px;
+    transition: color 0.3s ease;
   }
 
   .metric-label {
@@ -1577,6 +1679,403 @@
     background: rgba(0, 0, 0, 0.5);
     z-index: 999;
   }
+
+  .mobile-metrics {
+    display: none;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: rgba(32, 40, 55, 0.95);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(120, 243, 12, 0.1);
+
+    @media screen and (max-width: 768px) {
+      display: grid;
+    }
+  }
+
+  .mobile-metric {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(120, 243, 12, 0.05);
+    border: 1px solid rgba(120, 243, 12, 0.1);
+    border-radius: 6px;
+    transition: all 0.3s ease;
+  }
+
+  .mobile-metric.is-warning {
+    background: rgba(255, 221, 87, 0.05);
+    border-color: rgba(255, 221, 87, 0.1);
+  }
+
+  .mobile-metric.is-warning .metric-icon,
+  .mobile-metric.is-warning .metric-value {
+    color: #ffdd57;
+  }
+
+  .mobile-metric.is-danger {
+    background: rgba(255, 56, 96, 0.05);
+    border-color: rgba(255, 56, 96, 0.1);
+  }
+
+  .mobile-metric.is-danger .metric-icon,
+  .mobile-metric.is-danger .metric-value {
+    color: #ff3860;
+  }
+
+  .mobile-metric.is-offline {
+    background: rgba(136, 136, 136, 0.05);
+    border-color: rgba(136, 136, 136, 0.1);
+  }
+
+  .mobile-metric.is-offline .metric-icon,
+  .mobile-metric.is-offline .metric-value {
+    color: #888;
+  }
+
+  .mobile-metric .metric-icon {
+    color: #78f30c;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .mobile-metric .metric-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .mobile-metric .metric-label {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .mobile-metric .metric-value {
+    color: #78f30c;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Estilos específicos para cenas no mobile */
+  @media screen and (max-width: 768px) {
+    .scene-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.75rem;
+      padding: 0.5rem;
+      margin: 0;
+    }
+
+    :global(.scene-button) {
+      width: 100%;
+      min-height: 80px;
+      padding: 0.75rem;
+      border-radius: 10px;
+      background: rgba(120, 243, 12, 0.05);
+      border: 1px solid rgba(120, 243, 12, 0.1);
+      color: white;
+      font-size: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    :global(.scene-button.active) {
+      background: rgba(120, 243, 12, 0.15);
+      border-color: rgba(120, 243, 12, 0.3);
+      transform: scale(0.98);
+    }
+
+    :global(.scene-button:active) {
+      transform: scale(0.95);
+    }
+
+    :global(.scene-button .icon) {
+      font-size: 1.5rem;
+      margin: 0;
+      opacity: 0.9;
+    }
+
+    :global(.scene-button .scene-name) {
+      font-weight: 500;
+      text-align: center;
+      line-height: 1.2;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    :global(.scene-button::after) {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(45deg, transparent, rgba(120, 243, 12, 0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    :global(.scene-button:hover::after) {
+      opacity: 1;
+    }
+
+    :global(.scene-button.preview) {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    :global(.scene-button.program) {
+      background: rgba(120, 243, 12, 0.1);
+      border-color: rgba(120, 243, 12, 0.2);
+    }
+
+    /* Container para as cenas no mobile */
+    .mobile-scenes-container {
+      background: rgba(32, 40, 55, 0.95);
+      border-radius: 12px;
+      margin: 1rem 0;
+      padding: 1rem;
+      border: 1px solid rgba(120, 243, 12, 0.1);
+    }
+
+    .mobile-scenes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      padding: 0 0.5rem;
+    }
+
+    .mobile-scenes-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #78f30c;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .mobile-scenes-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .mobile-scenes-action {
+      background: rgba(120, 243, 12, 0.1);
+      border: none;
+      color: #78f30c;
+      padding: 0.5rem;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .mobile-scenes-action:hover {
+      background: rgba(120, 243, 12, 0.15);
+    }
+
+    .mobile-scenes-action .icon {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  /* Estilos para cenas (desktop e mobile) */
+  .scene-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+    padding: 0.5rem;
+    margin: 0;
+  }
+
+  :global(.scene-button) {
+    width: 100%;
+    min-height: 90px;
+    padding: 0.75rem;
+    border-radius: 10px;
+    background: rgba(120, 243, 12, 0.05);
+    border: 1px solid rgba(120, 243, 12, 0.1);
+    color: white;
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  :global(.scene-button.active) {
+    background: rgba(120, 243, 12, 0.15);
+    border-color: rgba(120, 243, 12, 0.3);
+    transform: scale(0.98);
+  }
+
+  :global(.scene-button:active) {
+    transform: scale(0.95);
+  }
+
+  :global(.scene-button .icon) {
+    font-size: 1.75rem;
+    margin: 0;
+    opacity: 0.9;
+  }
+
+  :global(.scene-button .scene-name) {
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :global(.scene-button::after) {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg, transparent, rgba(120, 243, 12, 0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  :global(.scene-button:hover::after) {
+    opacity: 1;
+  }
+
+  :global(.scene-button.preview) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  :global(.scene-button.program) {
+    background: rgba(120, 243, 12, 0.1);
+    border-color: rgba(120, 243, 12, 0.2);
+  }
+
+  /* Container para as cenas */
+  .scenes-container {
+    background: rgba(32, 40, 55, 0.95);
+    border-radius: 12px;
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid rgba(120, 243, 12, 0.1);
+  }
+
+  .scenes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
+  }
+
+  .scenes-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #78f30c;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .scenes-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .scenes-action {
+    background: rgba(120, 243, 12, 0.1);
+    border: none;
+    color: #78f30c;
+    padding: 0.5rem;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .scenes-action:hover {
+    background: rgba(120, 243, 12, 0.15);
+    transform: translateY(-1px);
+  }
+
+  .scenes-action .icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  @media screen and (max-width: 768px) {
+    .scene-grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+
+    :global(.scene-button) {
+      min-height: 80px;
+    }
+
+    :global(.scene-button .icon) {
+      font-size: 1.5rem;
+    }
+
+    .scenes-title {
+      font-size: 1rem;
+    }
+
+    .scenes-action .icon {
+      width: 20px;
+      height: 20px;
+    }
+
+  }
+
+  .copyright-content {
+    text-align: center;
+  }
+
+  .copyright-title {
+    color: #78f30c;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .copyright-text {
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+  }
+
+  .copyright-text a {
+    color: #78f30c;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .copyright-text a:hover {
+    text-decoration: underline;
+    opacity: 0.9;
+  }
 </style>
 
 <svelte:head>
@@ -1586,8 +2085,7 @@
 <nav class="navbar" aria-label="main navigation">
   <div class="navbar-brand">
     <a class="navbar-item brand-link" href="/">
-      <img src="favicon.png" alt="OBS-web" class="rotate" />
-      <span class="brand-text">OBS Web</span>
+      <img src="https://res.cloudinary.com/dltf1g6ne/image/upload/v1741612648/naybox_logo_ggufct.png" alt="NayBox" style="height: 28px; max-height: 28px;" />
     </a>
 
     <button
@@ -1639,6 +2137,13 @@
           <span>Tela Cheia</span>
         </a>
 
+        <a class="navbar-item" on:click={() => isCopyrightModalOpen = true}>
+          <span class="icon">
+            <Icon path={mdiInformation} />
+          </span>
+          <span>Copyright</span>
+        </a>
+
         <div class="navbar-item">
           <button class="button is-light is-small" on:click={disconnect}>
             <span class="icon">
@@ -1652,6 +2157,15 @@
   </div>
 </nav>
 
+<Modal isOpen={isCopyrightModalOpen} onClose={() => isCopyrightModalOpen = false}>
+  <div class="copyright-content">
+    <h3 class="copyright-title">Sobre o NayBox</h3>
+    <p class="copyright-text">
+      Interface personalizada do OBS-web por NayBox, baseada no projeto original de <a href="https://niekvandermaas.nl/" target="_blank" rel="noopener">Niek van der Maas</a>.
+    </p>
+  </div>
+</Modal>
+
 <div class="app-container">
           {#if connected}
     <!-- Navbar lateral para desktop -->
@@ -1659,28 +2173,18 @@
       <div class="sidebar-section">
         <h2 class="sidebar-title">Análise de Desempenho</h2>
         <div class="sidebar-metrics">
-              {#if heartbeat && heartbeat.stats}
-            <div class="sidebar-metric">
+              {#if heartbeat}
+            {@const bitrate = calculateBitrate(heartbeat)}
+            <div class="sidebar-metric" class:is-warning={bitrate > 0 && bitrate < 1500} class:is-danger={bitrate > 0 && bitrate < 800} class:is-offline={bitrate === 0}>
               <div class="metric-header">
                 <span class="metric-icon">
                   <Icon path={mdiSpeedometer} />
                 </span>
-                <span class="metric-label">FPS</span>
+                <span class="metric-label">Bitrate</span>
               </div>
               <div class="metric-value">
-                {Math.round(heartbeat.stats.activeFps)}
-              </div>
-            </div>
-            <div class="sidebar-metric">
-              <div class="metric-header">
-                <span class="metric-icon">
-                  <Icon path={mdiChip} />
-                </span>
-                <span class="metric-label">CPU</span>
-              </div>
-              <div class="metric-value">
-                {Math.round(heartbeat.stats.cpuUsage)}
-                <span class="metric-unit">%</span>
+                {bitrate === 0 ? 'OFFLINE' : bitrate}
+                <span class="metric-unit">{bitrate === 0 ? '' : 'kb/s'}</span>
               </div>
             </div>
           {/if}
@@ -1692,6 +2196,12 @@
         <div class="control-grid">
           <!-- Controles Principais -->
           <div class="primary-controls">
+            <!-- Início -->
+            <button class="button is-light" on:click={goToHome} title="Início">
+              <span class="icon"><Icon path={mdiViewGrid} /></span>
+              <span>Início</span>
+            </button>
+
             <!-- Stream -->
             {#if heartbeat && heartbeat.streaming && heartbeat.streaming.outputActive}
               <button class="button" on:click={stopStream} title="Parar Stream">
@@ -1814,11 +2324,7 @@
               <span>Tela Cheia</span>
           </button>
 
-            <!-- Seletores -->
-            <div class="select-controls">
-              <ProfileSelect />
-              <SceneCollectionSelect />
-        </div>
+
 
             <!-- Desconectar -->
             <button class="button is-light" on:click={disconnect} title="Desconectar">
@@ -1830,25 +2336,120 @@
   </div>
     </div>
 
-    <!-- Conteúdo principal -->
-    <div class="main-content">
+    <!-- Conteúdo principal das ferramentas -->
+    <div class="tools-main-content">
       <div class="preview-container">
-      {#if isSceneOnTop}
-        <ProgramPreview {imageFormat} />
-      {/if}
-      <SceneSwitcher
-        bind:scenes
-        buttonStyle={isIconMode ? 'icon' : 'text'}
-        {editable}
-      />
-      {#if !isSceneOnTop}
-        <ProgramPreview {imageFormat} />
-      {/if}
+        <!-- Métricas Mobile -->
+        <div class="mobile-metrics">
+          <div class="mobile-metric">
+            <span class="metric-icon">
+              <Icon path={mdiSpeedometer} />
+            </span>
+            <div class="metric-info">
+              <span class="metric-label">FPS</span>
+              <span class="metric-value">{heartbeat?.stats ? Math.round(heartbeat.stats.activeFps) : '--'}</span>
+            </div>
+          </div>
+
+          <div class="mobile-metric">
+            <span class="metric-icon">
+              <Icon path={mdiChip} />
+            </span>
+            <div class="metric-info">
+              <span class="metric-label">CPU</span>
+              <span class="metric-value">{heartbeat?.stats ? Math.round(heartbeat.stats.cpuUsage) : '--'}%</span>
+            </div>
+          </div>
+
+          {#if heartbeat}
+            {@const bitrate = calculateBitrate(heartbeat)}
+            <div class="mobile-metric" class:is-warning={bitrate > 0 && bitrate < 1500} class:is-danger={bitrate > 0 && bitrate < 800} class:is-offline={bitrate === 0}>
+              <span class="metric-icon">
+                <Icon path={mdiSpeedometer} />
+              </span>
+              <div class="metric-info">
+                <span class="metric-label">Bitrate</span>
+                <span class="metric-value">
+                  {bitrate === 0 ? 'OFF' : bitrate}
+                </span>
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        {#if isSceneOnTop}
+          <div class="scenes-container">
+            <div class="scenes-header">
+              <span class="scenes-title">
+                <Icon path={mdiViewGrid} />
+                Selecione uma Cena
+              </span>
+              <div class="scenes-actions">
+                <button 
+                  class="scenes-action"
+                  on:click={() => (editable = !editable)}
+                  title={editable ? "Modo Visualização" : "Modo Edição"}
+                >
+                  <Icon path={editable ? mdiImageEditOutline : mdiImageEdit} />
+                </button>
+                <button 
+                  class="scenes-action"
+                  on:click={switchSceneView}
+                  title="Alterar Layout"
+                >
+                  <Icon path={mdiArrowSplitHorizontal} />
+                </button>
+              </div>
+            </div>
+            <SceneSwitcher
+              bind:scenes
+              buttonStyle={isIconMode ? 'icon' : 'text'}
+              {editable}
+            />
+          </div>
+          <ProgramPreview {imageFormat} />
+        {:else}
+          <ProgramPreview {imageFormat} />
+          <div class="scenes-container">
+            <div class="scenes-header">
+              <span class="scenes-title">
+                <Icon path={mdiViewGrid} />
+                Selecione uma Cena
+              </span>
+              <div class="scenes-actions">
+                <button 
+                  class="scenes-action"
+                  on:click={() => (editable = !editable)}
+                  title={editable ? "Modo Visualização" : "Modo Edição"}
+                >
+                  <Icon path={editable ? mdiImageEditOutline : mdiImageEdit} />
+                </button>
+                <button 
+                  class="scenes-action"
+                  on:click={switchSceneView}
+                  title="Alterar Layout"
+                >
+                  <Icon path={mdiArrowSplitHorizontal} />
+                </button>
+              </div>
+            </div>
+            <SceneSwitcher
+              bind:scenes
+              buttonStyle={isIconMode ? 'icon' : 'text'}
+              {editable}
+            />
+          </div>
+        {/if}
       </div>
     </div>
 
     <!-- Navbar Mobile -->
     <div class="mobile-navbar">
+      <button class="button is-light" on:click={goToHome} title="Início">
+        <span class="icon icon-naybox"><Icon path={mdiViewGrid} /></span>
+        <span class="label">Início</span>
+      </button>
+
       {#if heartbeat && heartbeat.streaming && heartbeat.streaming.outputActive}
         <button class="button is-recording" on:click={stopStream} title="Parar Stream">
           <span class="icon icon-naybox"><Icon path={mdiAccessPointOff} /></span>
@@ -1860,9 +2461,9 @@
       {:else}
         <button class="button is-light" on:click={startStream} title="Iniciar Stream">
           <span class="icon icon-naybox"><Icon path={mdiAccessPoint} /></span>
-          <span class="label">Iniciar Live</span>
+          <span class="label">Live</span>
         </button>
-        {/if}
+      {/if}
 
       {#if heartbeat && heartbeat.recording && heartbeat.recording.outputActive}
         <button class="button is-recording" on:click={stopRecording} title="Parar Gravação">
@@ -1904,7 +2505,7 @@
             class="button"
             on:click={goToSceneEdit}
           >
-            <span class="icon">
+            <span class="icon" style="margin-right: 0 !important; margin-left: 0 !important;">
               <Icon path={mdiImageEdit} />
             </span>
             <span>Editar Cenas</span>
@@ -1914,7 +2515,7 @@
             class="button"
             on:click={goToSceneSwitch}
           >
-            <span class="icon">
+            <span class="icon" style="margin-right: 0 !important; margin-left: 0 !important;">
               <Icon path={mdiViewGrid} />
             </span>
             <span>Trocar Cenas</span>
@@ -2034,11 +2635,11 @@
       </div>
 
       <div class="mobile-menu-section">
-        <h4 class="mobile-menu-section-title">Perfis e Coleções</h4>
-        <div class="select-controls">
-          <ProfileSelect />
-          <SceneCollectionSelect />
-        </div>
+        <h4 class="mobile-menu-section-title">Sobre</h4>
+        <button class="button is-light" on:click={() => isCopyrightModalOpen = true}>
+          <span class="icon"><Icon path={mdiInformation} /></span>
+          <span>Copyright</span>
+        </button>
       </div>
 
       <div class="mobile-menu-section">
@@ -2061,13 +2662,13 @@
     {/if}
   {:else}
     <!-- Página de login -->
-    <div class="main-content">
+    <div class="login-main-content">
       <div class="login-container">
         <div class="login-box">
           <div class="login-header">
-            <img src="favicon.png" alt="OBS-web" class="login-logo rotate" />
-            <h1 class="title has-text-white">Bem-vindo ao OBS Web</h1>
-            <p class=" has-text-grey-light">Controle seu OBS Studio direto do navegador</p>
+            <img src="https://res.cloudinary.com/dltf1g6ne/image/upload/v1741612648/naybox_logo_ggufct.png" alt="NayBox" class="login-logo" style="width: auto; height: 80px;" />
+            <h1 class="title has-text-white">Bem-vindo ao NayBox</h1>
+            <p class="has-text-grey-light">Controle seu OBS Studio direto do navegador</p>
           </div>
 
           <div class="connection-info">
@@ -2180,9 +2781,7 @@
 <footer class="footer">
   <div class="content has-text-centered">
     <p>
-      <strong class="has-text-white">OBS-web</strong>
-      por
-      <a href="https://niekvandermaas.nl/">Niek van der Maas</a>
+      <strong class="has-text-white">NayBox</strong>
     </p>
   </div>
 </footer>

@@ -1,13 +1,13 @@
 {
-  "theme_color": "#00d1b2",
-  "background_color": "#00d1b2",
+  "theme_color": "#78f30c",
+  "background_color": "#202837",
   "display": "standalone",
   "orientation": "landscape",
   "scope": "/",
   "start_url": "/",
-  "name": "OBS-web",
-  "short_name": "OBS-web",
-  "description": "OBS-web - The easiest way to control OBS remotely",
+  "name": "NayBox",
+  "short_name": "NayBox",
+  "description": "NayBox - Controle seu OBS Studio direto do navegador",
   "prefer_related_applications": false,
   "icons": [
     {

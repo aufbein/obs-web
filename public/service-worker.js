@@ -1,53 +1,57 @@
 /* eslint-env serviceworker */
-const CACHE_NAME = 'offline'
+const CACHE_NAME = 'naybox-v1'
 
-// Customize this with a different URL if needed.
+// Lista de arquivos para cache
 const cacheFiles = [
   '/',
   'service-worker.js',
+  'manifest.json',
+  'favicon.png',
   '/icon/icon-192x192.png',
   '/icon/icon-256x256.png',
   '/icon/icon-384x384.png',
-  '/icon/icon-512x512.png'
+  '/icon/icon-512x512.png',
+  'https://res.cloudinary.com/dltf1g6ne/image/upload/v1741612648/naybox_logo_ggufct.png',
+  'bundle.css',
+  'bundle.js'
 ]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME)
-      // Setting {cache: 'reload'} in the new request will ensure that the
-      // response isn't fulfilled from the HTTP cache; i.e., it will be from
-      // the network.
-      // await cache.add(new Request(OFFLINE_URL, { cache: 'reload' }));
-
       await cache.addAll(cacheFiles)
     })()
   )
-  // Force the waiting service worker to become the active service worker.
+  // Força o service worker em espera a se tornar o ativo
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      // Enable navigation preload if it's supported.
-      // See https://developers.google.com/web/updates/2017/02/navigation-preload
+      // Limpa caches antigos
+      const cacheNames = await caches.keys()
+      await Promise.all(
+        cacheNames
+          .filter(cacheName => cacheName !== CACHE_NAME)
+          .map(cacheName => caches.delete(cacheName))
+      )
+
+      // Habilita o navigation preload se suportado
       if ('navigationPreload' in self.registration) {
         await self.registration.navigationPreload.enable()
       }
     })()
   )
-
-  // Tell the active service worker to take control of the page immediately.
+  // Faz o service worker assumir o controle imediatamente
   self.clients.claim()
 })
 
 self.addEventListener('fetch', (event) => {
-  // We only want to call event.respondWith() if this is a navigation request
-  // for an HTML page.
   event.respondWith(
     (async () => {
-      // Respond from the cache if we can
+      // Tenta responder do cache primeiro
       const cache = await caches.open(CACHE_NAME)
       const cachedResponse = await cache.match(event.request)
 
@@ -55,18 +59,23 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse
       }
 
-      // Else, use the preloaded response, if it's there
-      const response = await event.preloadResponse
-
-      if (response) {
+      try {
+        // Se não estiver no cache, tenta buscar da rede
+        const response = await fetch(event.request)
+        
+        // Salva no cache se for uma resposta válida
+        if (response.ok) {
+          cache.put(event.request, response.clone())
+        }
+        
         return response
+      } catch (error) {
+        // Se falhar ao buscar da rede, retorna uma página de fallback ou erro
+        return new Response('Erro de conexão. Por favor, verifique sua internet.', {
+          status: 408,
+          headers: { 'Content-Type': 'text/plain' }
+        })
       }
-
-      // Else try the network.
-      return fetch(event.request).then((response) => {
-        cache.put(event.request, response.clone())
-        return response
-      })
     })()
   )
 })

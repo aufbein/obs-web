@@ -23,140 +23,210 @@
   style={buttonStyle === 'icon' ? style : ''}
   title={name}
   >
-  {#if img}<img src={img} alt={name} class="thumbnail" />{/if}
-  {#if buttonStyle !== 'icon'}{name}{/if}
+  {#if img}
+    <div class="image-container">
+      <img src={img} alt={name} class="thumbnail" />
+      {#if isProgram}
+        <div class="live-tag">
+          <span class="live-dot"></span>
+          AO VIVO
+        </div>
+      {/if}
+    </div>
+  {/if}
+  {#if buttonStyle !== 'icon'}
+    <div class="content">
+      <div class="main-info">
+        <span class="name">{name}</span>
+        {#if isProgram}
+          <span class="tag live">AO VIVO</span>
+        {:else if isPreview}
+          <span class="tag preview">PREVIEW</span>
+        {/if}
+      </div>
+    </div>
+  {/if}
 </button>
 
 <style>
   button {
-    border: none;
-    height: 4rem;
-    text-align: center;
     width: 100%;
+    min-height: 60px;
+    border: none;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.1) no-repeat center center / cover;
+    background: #1E1E1E;
     color: #fff;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(5px);
+    border-radius: 8px;
     position: relative;
     overflow: hidden;
-  }
-
-  button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(120, 243, 12, 0.2);
-    border-color: rgba(120, 243, 12, 0.3);
+    padding: 0;
+    margin-bottom: 8px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    border: 1px solid rgba(120, 243, 12, 0.1);
   }
 
   button:active {
-    transform: translateY(0);
+    background: #252525;
+  }
+
+  .image-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .live-tag {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(30, 30, 30, 0.9);
+    padding: 6px 10px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #78f30c;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(120, 243, 12, 0.2);
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    background: #78f30c;
+    border-radius: 50%;
+    display: inline-block;
+    animation: blink 1.5s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+  }
+
+  .content {
+    padding: 12px 16px;
+  }
+
+  .main-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .tag.live {
+    background: rgba(120, 243, 12, 0.15);
+    color: #78f30c;
+    border: 1px solid rgba(120, 243, 12, 0.2);
+  }
+
+  .tag.preview {
+    background: rgba(120, 243, 12, 0.1);
+    color: #78f30c;
+    border: 1px solid rgba(120, 243, 12, 0.15);
   }
 
   button.preview {
-    background: rgba(120, 243, 12, 0.15);
-    border-color: rgba(120, 243, 12, 0.3);
-  }
-
-  button.preview::before {
-    content: "Preview";
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    font-size: 0.6rem;
-    background: #78f30c;
-    color: #202837;
-    padding: 2px 6px;
-    border-radius: 8px;
-    font-weight: bold;
-    opacity: 0.9;
+    background: #1E1E1E;
+    border: 1px solid rgba(120, 243, 12, 0.3);
   }
 
   button.program {
-    background: rgba(120, 243, 12, 0.25);
-    border-color: #78f30c;
-  }
-
-  button.program::before {
-    content: "Live";
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    font-size: 0.6rem;
-    background: #78f30c;
-    color: #202837;
-    padding: 2px 6px;
-    border-radius: 8px;
-    font-weight: bold;
-    opacity: 0.9;
+    background: #1E1E1E;
+    border: 1px solid #78f30c;
   }
 
   button:not(.title) {
-    padding: 0;
-    width: 192px;
-    height: 126px;
+    height: 180px;
   }
 
   button.with-icon {
-    height: 80px;
-    width: 80px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    margin: 0.5em;
-    border-radius: 15px;
-    cursor: pointer;
-    background: rgba(255, 255, 255, 0.1) no-repeat center center / cover;
-    position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  button.with-icon:hover {
-    transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 4px 15px rgba(120, 243, 12, 0.25);
-    border-color: rgba(120, 243, 12, 0.3);
+    width: 60px;
+    height: 60px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1E1E1E;
+    border-radius: 8px;
+    margin: 4px;
   }
 
   button.with-icon.program {
-    border-color: #78f30c;
-    box-shadow: 0 0 15px rgba(120, 243, 12, 0.3);
-  }
-
-  button.with-icon.program::before {
-    content: "";
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: #78f30c;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    border: 1px solid #78f30c;
   }
 
   button.with-icon.preview {
-    border-color: rgba(120, 243, 12, 0.5);
-    box-shadow: 0 0 10px rgba(120, 243, 12, 0.2);
-  }
-
-  button.with-icon.preview::before {
-    content: "";
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    background: rgba(120, 243, 12, 0.5);
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(120, 243, 12, 0.3);
   }
 
   .thumbnail {
-    display: block;
-    max-width: 100%;
-    max-height: calc(100% - 1rem);
-    margin: 0 auto;
-    border-radius: 8px;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  @media (min-width: 769px) {
+    button {
+      min-height: 64px;
+    }
+
+    .name {
+      font-size: 15px;
+    }
+
+    button.with-icon {
+      width: 64px;
+      height: 64px;
+      margin: 6px;
+    }
+
+    .tag {
+      font-size: 12px;
+    }
+
+    .live-tag {
+      font-size: 13px;
+      padding: 7px 12px;
+    }
+  }
+
+  @media (hover: hover) {
+    button:hover {
+      background: #252525;
+      border-color: rgba(120, 243, 12, 0.2);
+    }
+
+    button.program:hover {
+      border-color: #78f30c;
+    }
+
+    button.with-icon:hover {
+      background: #252525;
+    }
   }
 </style>

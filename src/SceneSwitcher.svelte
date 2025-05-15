@@ -100,7 +100,7 @@
 >
   {#if editable}
     <div class="scene-editor">
-      <div class="tabs">
+      <div class="tabs desktop-only">
         {#each scenes.reverse() as scene, i}
           <button 
             class="tab-button" 
@@ -110,6 +110,27 @@
             Cena {i + 1}
           </button>
         {/each}
+      </div>
+
+      <div class="mobile-nav mobile-only">
+        <h2 class="mobile-title">Edite uma Cena</h2>
+        <div class="nav-buttons">
+          <button 
+            class="nav-btn prev" 
+            on:click={() => activeTab = Math.max(0, activeTab - 1)}
+            disabled={activeTab === 0}
+          >
+            ←
+          </button>
+          <span class="scene-counter">Cena {activeTab + 1} de {scenes.length}</span>
+          <button 
+            class="nav-btn next" 
+            on:click={() => activeTab = Math.min(scenes.length - 1, activeTab + 1)}
+            disabled={activeTab === scenes.length - 1}
+          >
+            →
+          </button>
+        </div>
       </div>
 
       <div class="tab-content">
@@ -274,7 +295,7 @@
   }
 
   .tab-content {
-    padding: 2rem;
+    margin-top: 1rem;
     background: #202837;
   }
 
@@ -352,9 +373,7 @@
       font-size: 0.85rem;
     }
 
-    .tab-content {
-      padding: 1.5rem;
-    }
+
 
     .scene-edit-form {
       padding: 1.5rem;
@@ -502,6 +521,81 @@
     ol.column li:hover::before {
       opacity: 1;
       left: -35px;
+    }
+  }
+
+  .desktop-only {
+    display: flex;
+  }
+
+  .mobile-only {
+    display: none;
+  }
+
+  @media screen and (max-width: 768px) {
+    .desktop-only {
+      display: none;
+    }
+
+    .mobile-only {
+      display: block;
+    }
+
+    .mobile-nav {
+      background: #1a212f;
+      padding: 1rem;
+      border-bottom: 1px solid #2a3446;
+    }
+
+    .mobile-title {
+      color: #78f30c;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 0 0 1rem 0;
+      text-align: center;
+    }
+
+    .nav-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+    }
+
+    .nav-btn {
+      background: rgba(120, 243, 12, 0.1);
+      border: 1px solid rgba(120, 243, 12, 0.2);
+      color: #78f30c;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 24px;
+      transition: all 0.2s ease;
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .nav-btn:not(:disabled):hover {
+      background: rgba(120, 243, 12, 0.2);
+    }
+
+    .nav-btn:not(:disabled):active {
+      transform: scale(0.95);
+    }
+
+    .scene-counter {
+      color: #fff;
+      font-size: 0.9rem;
+      opacity: 0.8;
+      min-width: 120px;
+      text-align: center;
     }
   }
 </style>

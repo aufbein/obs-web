@@ -40,6 +40,7 @@
     mdiChevronDown,
     mdiChevronUp,
     mdiArrowLeft,
+    mdiEye,
   } from '@mdi/js'
   import Icon from 'mdi-svelte'
   import { compareVersions } from 'compare-versions'
@@ -75,6 +76,9 @@
   let showMoreOptions = false
   let scenesDropdownVisible = false
   let isCopyrightModalOpen = false
+  let streamKey = window.localStorage.getItem('streamKey') || ''
+  let rtmpBitrate = 0
+  let rtmpCheckInterval
 
   // Função para ir para a tela inicial (troca de cenas)
   async function goToHome() {
@@ -98,6 +102,9 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/service-worker.js')
     }
+
+    // Carregar stream key do localStorage
+    streamKey = window.localStorage.getItem('streamKey') || ''
 
     // Request screen wakelock
     if ('wakeLock' in navigator) {
@@ -276,6 +283,12 @@
       const secure = location.protocol === 'https:' || address.endsWith(':443')
       address = secure ? 'wss://' : 'ws://' + address
     }
+    
+    // Salvar stream key no localStorage
+    if (streamKey) {
+      window.localStorage.setItem('streamKey', streamKey)
+    }
+
     console.log('Connecting to:', address, '- using password:', password)
     await disconnect()
     try {
@@ -286,6 +299,9 @@
       console.log(
         `Connected to obs-websocket version ${obsWebSocketVersion} (using RPC ${negotiatedRpcVersion})`
       )
+
+      // Iniciar verificação do bitrate RTMP
+      startRtmpCheck()
     } catch (e) {
       console.log(e)
       errorMessage = e.message
@@ -295,6 +311,7 @@
   async function disconnect() {
     await obs.disconnect()
     clearInterval(heartbeatInterval)
+    clearInterval(rtmpCheckInterval)
     connected = false
     errorMessage = 'Disconnected'
   }
@@ -404,10 +421,40 @@
     }
     return 0;
   }
+
+  // Função para verificar o bitrate RTMP
+  async function checkRtmpBitrate() {
+    try {
+      const response = await fetch('http://saopaulo.naybox.live:8080/stat')
+      const text = await response.text()
+      const parser = new DOMParser()
+      const xmlDoc = parser.parseFromString(text, 'text/xml')
+      
+      const streams = xmlDoc.getElementsByTagName('stream')
+      for (let stream of streams) {
+        const name = stream.getElementsByTagName('name')[0]?.textContent
+        if (name === streamKey) {
+          const bw_in = stream.getElementsByTagName('bw_in')[0]?.textContent
+          rtmpBitrate = Math.round(bw_in / 1000) // Convertendo de bps para kbps
+          break
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao verificar bitrate RTMP:', error)
+    }
+  }
+
+  function startRtmpCheck() {
+    if (rtmpCheckInterval) {
+      clearInterval(rtmpCheckInterval)
+    }
+    checkRtmpBitrate()
+    
+    rtmpCheckInterval = setInterval(checkRtmpBitrate, 5000)
+  }
 </script>
 
 <style lang="scss">
-  /* Estilos do scrollbar para navegadores WebKit (Chrome, Safari, Edge) */
   :global(*::-webkit-scrollbar) {
     width: 10px;
     height: 10px;
@@ -2076,6 +2123,62 @@
     text-decoration: underline;
     opacity: 0.9;
   }
+
+  /* Estilos específicos para o widget de bitrate RTMP */
+  .metric-icon.rtmp {
+    color: #78f30c;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .sidebar-metric.rtmp-active .metric-value,
+  .mobile-metric.rtmp-active .metric-value {
+    color: #78f30c;
+    text-shadow: 0 0 10px rgba(120, 243, 12, 0.3);
+  }
+
+  .sidebar-metric.rtmp-offline .metric-value,
+  .mobile-metric.rtmp-offline .metric-value {
+    color: #888;
+    font-style: italic;
+  }
+
+  /* Ajuste para o campo de stream key */
+  .stream-key-field {
+    position: relative;
+  }
+
+  .stream-key-field .input {
+    padding-right: 2.5rem;
+  }
+
+  .stream-key-toggle {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: rgba(120, 243, 12, 0.5);
+    cursor: pointer;
+    padding: 0.25rem;
+    transition: all 0.3s ease;
+  }
+
+  .stream-key-toggle:hover {
+    color: #78f30c;
+  }
 </style>
 
 <svelte:head>
@@ -2170,26 +2273,24 @@
           {#if connected}
     <!-- Navbar lateral para desktop -->
     <div class="desktop-sidebar">
-      <div class="sidebar-section">
-        <h2 class="sidebar-title">Análise de Desempenho</h2>
-        <div class="sidebar-metrics">
-              {#if heartbeat}
-            {@const bitrate = calculateBitrate(heartbeat)}
-            <div class="sidebar-metric" class:is-warning={bitrate > 0 && bitrate < 1500} class:is-danger={bitrate > 0 && bitrate < 800} class:is-offline={bitrate === 0}>
-              <div class="metric-header">
-                <span class="metric-icon">
-                  <Icon path={mdiSpeedometer} />
-                </span>
-                <span class="metric-label">Bitrate</span>
-              </div>
-              <div class="metric-value">
-                {bitrate === 0 ? 'OFFLINE' : bitrate}
-                <span class="metric-unit">{bitrate === 0 ? '' : 'kb/s'}</span>
-              </div>
+            <div class="sidebar-section">        <h2 class="sidebar-title">Análise de Desempenho</h2>        <div class="sidebar-metrics">          <!-- OBS Bitrate -->          {#if heartbeat}            {@const bitrate = calculateBitrate(heartbeat)}            <div class="sidebar-metric" class:is-warning={bitrate > 0 && bitrate < 1500} class:is-danger={bitrate > 0 && bitrate < 800} class:is-offline={bitrate === 0}>              <div class="metric-header">                <span class="metric-icon">                  <Icon path={mdiSpeedometer} />                </span>                <span class="metric-label">Bitrate OBS</span>              </div>              <div class="metric-value">                {bitrate === 0 ? 'OFFLINE' : bitrate}                <span class="metric-unit">{bitrate === 0 ? '' : 'kb/s'}</span>              </div>            </div>          {/if}          <!-- RTMP Bitrate -->          <div class="sidebar-metric" 
+            class:is-warning={rtmpBitrate > 0 && rtmpBitrate < 1500} 
+            class:is-danger={rtmpBitrate > 0 && rtmpBitrate < 800} 
+            class:is-offline={rtmpBitrate === 0}
+            class:rtmp-active={rtmpBitrate > 0}
+            class:rtmp-offline={rtmpBitrate === 0}
+          >
+            <div class="metric-header">
+              <span class="metric-icon rtmp">
+                <Icon path={mdiSpeedometer} />
+              </span>
+              <span class="metric-label">Bitrate RTMP</span>
             </div>
-          {/if}
-        </div>
-      </div>
+            <div class="metric-value">
+              {rtmpBitrate === 0 ? 'OFFLINE' : rtmpBitrate}
+              <span class="metric-unit">{rtmpBitrate === 0 ? '' : 'kb/s'}</span>
+            </div>
+          </div>        </div>      </div>
 
       <div class="sidebar-section">
         <h2 class="sidebar-title">Controles de Stream</h2>
@@ -2340,41 +2441,25 @@
     <div class="tools-main-content">
       <div class="preview-container">
         <!-- Métricas Mobile -->
-        <div class="mobile-metrics">
-          <div class="mobile-metric">
-            <span class="metric-icon">
-              <Icon path={mdiSpeedometer} />
-            </span>
-            <div class="metric-info">
-              <span class="metric-label">FPS</span>
-              <span class="metric-value">{heartbeat?.stats ? Math.round(heartbeat.stats.activeFps) : '--'}</span>
-            </div>
-          </div>
-
-          <div class="mobile-metric">
-            <span class="metric-icon">
-              <Icon path={mdiChip} />
-            </span>
-            <div class="metric-info">
-              <span class="metric-label">CPU</span>
-              <span class="metric-value">{heartbeat?.stats ? Math.round(heartbeat.stats.cpuUsage) : '--'}%</span>
-            </div>
-          </div>
-
-          {#if heartbeat}
-            {@const bitrate = calculateBitrate(heartbeat)}
-            <div class="mobile-metric" class:is-warning={bitrate > 0 && bitrate < 1500} class:is-danger={bitrate > 0 && bitrate < 800} class:is-offline={bitrate === 0}>
-              <span class="metric-icon">
+                  <div class="mobile-metrics">            <div class="mobile-metric">              <span class="metric-icon">                <Icon path={mdiSpeedometer} />              </span>              <div class="metric-info">                <span class="metric-label">FPS</span>                <span class="metric-value">{heartbeat?.stats ? Math.round(heartbeat.stats.activeFps) : '--'}</span>              </div>            </div>            <div class="mobile-metric">              <span class="metric-icon">                <Icon path={mdiChip} />              </span>              <div class="metric-info">                <span class="metric-label">CPU</span>                <span class="metric-value">{heartbeat?.stats ? Math.round(heartbeat.stats.cpuUsage) : '--'}%</span>              </div>            </div>            <!-- OBS Bitrate -->            {#if heartbeat}              {@const bitrate = calculateBitrate(heartbeat)}              <div class="mobile-metric" class:is-warning={bitrate > 0 && bitrate < 1500} class:is-danger={bitrate > 0 && bitrate < 800} class:is-offline={bitrate === 0}>                <span class="metric-icon">                  <Icon path={mdiSpeedometer} />                </span>                <div class="metric-info">                  <span class="metric-label">OBS</span>                  <span class="metric-value">                    {bitrate === 0 ? 'OFF' : bitrate}                  </span>                </div>              </div>            {/if}            <!-- RTMP Bitrate -->            <div class="mobile-metric" 
+              class:is-warning={rtmpBitrate > 0 && rtmpBitrate < 1500} 
+              class:is-danger={rtmpBitrate > 0 && rtmpBitrate < 800} 
+              class:is-offline={rtmpBitrate === 0}
+              class:rtmp-active={rtmpBitrate > 0}
+              class:rtmp-offline={rtmpBitrate === 0}
+            >
+              <span class="metric-icon rtmp">
                 <Icon path={mdiSpeedometer} />
               </span>
               <div class="metric-info">
-                <span class="metric-label">Bitrate</span>
+                <span class="metric-label">RTMP</span>
                 <span class="metric-value">
-                  {bitrate === 0 ? 'OFF' : bitrate}
+                  {rtmpBitrate === 0 ? 'OFF' : rtmpBitrate + ' kb/s'}
                 </span>
               </div>
             </div>
-          {/if}
+
+
         </div>
 
         {#if isSceneOnTop}
@@ -2707,18 +2792,35 @@
             <div class="field">
               <label class="label has-text-white">Senha</label>
               <div class="control has-icons-left">
-            <input
-              id="password"
-              bind:value={password}
-              class="input"
-              type="password"
+                <input
+                  id="password"
+                  bind:value={password}
+                  class="input"
+                  type="password"
                   placeholder="Deixe em branco se a autenticação estiver desativada"
-            />
+                />
                 <span class="icon is-small is-left">
                   <Icon path={mdiKey} />
                 </span>
-        </div>
+              </div>
               <p class="help has-text-grey-light">Senha configurada no plugin obs-websocket</p>
+            </div>
+
+            <div class="field">
+              <label class="label has-text-white">Stream Key</label>
+              <div class="control has-icons-left">
+                <input
+                  id="streamKey"
+                  bind:value={streamKey}
+                  class="input"
+                  type="text"
+                  placeholder="Sua stream key do NayBox"
+                />
+                <span class="icon is-small is-left">
+                  <Icon path={mdiKey} />
+                </span>
+              </div>
+              <p class="help has-text-grey-light">Stream key fornecida pelo NayBox</p>
             </div>
 
             <div class="field">
@@ -2737,10 +2839,7 @@
                 <span class="icon">
                   <Icon path={mdiAlert} />
                 </span>
-                <span>{errorMessage}</span>
-              </div>
-            {/if}
-      </form>
+                <span>{errorMessage}</span>                </div>             {/if}        </form>
 
           <div class="features-grid">
             <div class="feature-item">
